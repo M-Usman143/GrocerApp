@@ -5,7 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:GrocerApp/pages/LocationScreen.dart';
 import '../Common/OtpService.dart';
-import 'Dashboard.dart';
+import 'Dashboard/Dashboard.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../theme/app_theme.dart';
+import 'ProfileGetter.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
@@ -48,7 +52,7 @@ class _OtpScreenState extends State<OtpScreen> {
       phoneNumber: widget.phoneNumber,
       verificationCompleted: (PhoneAuthCredential credential) async {
         await auth.signInWithCredential(credential);
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => Dashbaord()));
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => Dashboard()));
       },
       verificationFailed: (FirebaseAuthException e) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

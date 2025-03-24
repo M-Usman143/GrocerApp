@@ -1,227 +1,635 @@
 import 'package:flutter/material.dart';
 import '../Models/Cart Model.dart';
-import 'CheckoutScreen.dart';
-import 'package:GrocerApp/pages/Dashboard.dart';
+import 'package:GrocerApp/pages/CheckoutScreen.dart';
 import '../Common/SetupProgressWidget.dart';
 import 'package:provider/provider.dart';
 import '../Common/Cart Provider.dart';
+import '../theme/app_theme.dart';
+import '../utils/cart_animations.dart';
 
 class MyCartScreen extends StatefulWidget {
-
   @override
   _MyCartScreenState createState() => _MyCartScreenState();
 }
 
 class _MyCartScreenState extends State<MyCartScreen> {
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: buildAppBar(context),
-      body: CartProviders(),
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        backgroundColor: AppTheme.primaryColor,
+        elevation: 0,
+        title: Text(
+          'My Cart',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        actions: [
+          // Clear cart button
+          Consumer<CartProvider>(
+            builder: (context, cartProvider, _) {
+              if (cartProvider.mainCartItems.isEmpty && 
+                  cartProvider.listViewCartItems.isEmpty) {
+                return SizedBox.shrink();
+              }
+              return IconButton(
+                icon: Icon(Icons.delete_outline),
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text('Clear Cart'),
+                      content: Text('Are you sure you want to clear your cart?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            cartProvider.clearMainCart();
+                            cartProvider.clearListViewCart();
+                            Navigator.pop(context);
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          child: Text('Clear'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      body: Consumer<CartProvider>(
+        builder: (context, cartProvider, child) {
+          final mainCartItems = cartProvider.mainCartItems;
+          final listViewCartItems = cartProvider.listViewCartItems;
+
+          bool isCartEmpty = mainCartItems.isEmpty && listViewCartItems.isEmpty;
+
+          return isCartEmpty
+              ? _buildEmptyCartView()
+              : Column(
+                  children: [
+                    // Progress indicator
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: StepProgressWidget(currentStep: 1),
+                    ),
+                    
+                    // Cart items
+                    Expanded(
+                      child: CustomScrollView(
+                        slivers: [
+                          // Main cart items section
+                          if (mainCartItems.isNotEmpty) 
+                            _buildSectionHeader('My Cart'),
+                          if (mainCartItems.isNotEmpty)
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  return _buildCartItem(
+                                    cartProvider,
+                                    mainCartItems[index],
+                                    true,
+                                  );
+                                },
+                                childCount: mainCartItems.length,
+                              ),
+                            ),
+                            
+                          // List view cart items section
+                          if (listViewCartItems.isNotEmpty)
+                            _buildSectionHeader('List View Cart'),
+                          if (listViewCartItems.isNotEmpty)
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate(
+                                (context, index) {
+                                  return _buildCartItem(
+                                    cartProvider,
+                                    listViewCartItems[index],
+                                    false,
+                                  );
+                                },
+                                childCount: listViewCartItems.length,
+                              ),
+                            ),
+                            
+                          // Promo code section
+                          SliverToBoxAdapter(
+                            child: _buildPromoCodeSection(),
+                          ),
+                          
+                          // Order summary
+                          SliverToBoxAdapter(
+                            child: _buildOrderSummary(cartProvider),
+                          ),
+                          
+                          // Bottom padding
+                          SliverToBoxAdapter(
+                            child: SizedBox(height: 100),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+        },
+      ),
+      bottomSheet: Consumer<CartProvider>(
+        builder: (context, cartProvider, _) {
+          final isCartEmpty = cartProvider.mainCartItems.isEmpty && 
+                             cartProvider.listViewCartItems.isEmpty;
+          
+          if (isCartEmpty) return SizedBox.shrink();
+          
+          return _buildCheckoutButton(cartProvider);
+        },
+      ),
     );
   }
-
-  Consumer<CartProvider> CartProviders() {
-    return Consumer<CartProvider>(
-      builder: (context, cartProvider, child) {
-
-        final mainCartItems = cartProvider.mainCartItems;
-        final listViewCartItems = cartProvider.listViewCartItems;
-
-
-        return mainCartItems.isEmpty && listViewCartItems.isEmpty
-            ? buildEmptyCartView(context)
-            : Column(
+  
+  SliverToBoxAdapter _buildSectionHeader(String title) {
+    return SliverToBoxAdapter(
+      child: Container(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 18, 
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildCartItem(CartProvider cartProvider, CartItem item, bool isMainCart) {
+    final productImageKey = GlobalKey();
+    
+    return Dismissible(
+      key: Key(item.variant.var_id + (isMainCart ? '_main' : '_list')),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: EdgeInsets.only(right: 20),
+        child: Icon(
+          Icons.delete,
+          color: Colors.white,
+          size: 30,
+        ),
+      ),
+      onDismissed: (direction) {
+        if (isMainCart) {
+          cartProvider.removeFromMainCart(item.variant.var_id);
+        } else {
+          cartProvider.removeFromListViewCart(item.variant.var_id);
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${item.variant.name} removed from cart'),
+            action: SnackBarAction(
+              label: 'UNDO',
+              onPressed: () {
+                if (isMainCart) {
+                  cartProvider.addToMainCart(item.variant);
+                  cartProvider.updateMainCartQuantity(
+                    item.variant.var_id, 
+                    item.quantity
+                  );
+                } else {
+                  cartProvider.addToListViewCart(item.variant);
+                  cartProvider.updateListViewCartQuantity(
+                    item.variant.var_id, 
+                    item.quantity
+                  );
+                }
+              },
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
           children: [
+            // Product image
+            Container(
+              width: 100,
+              height: 100,
+              key: productImageKey,
+              child: ClipRRect(
+                borderRadius: BorderRadius.horizontal(left: Radius.circular(16)),
+                child: Image.asset(
+                  item.variant.image,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Center(
+                    child: Icon(
+                      Icons.image_not_supported_outlined,
+                      color: Colors.grey[400],
+                      size: 40,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            
+            // Product details
             Expanded(
-              child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    StepProgressWidget(currentStep: 1),
-                    buildProductMainListView(cartProvider),
-                    buildProductListViews(cartProvider),
-                    buildFinalCartSummary(cartProvider), // Final summary for both carts
-                  //  buildCartSummaryListview(cartProvider),
+                    Text(
+                      item.variant.name,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      item.variant.weight,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Price
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (item.variant.pre_price != item.variant.curr_price)
+                              Text(
+                                item.variant.pre_price,
+                                style: TextStyle(
+                                  decoration: TextDecoration.lineThrough,
+                                  color: Colors.grey[600],
+                                  fontSize: 12,
+                                ),
+                              ),
+                            Text(
+                              item.variant.curr_price,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        // Quantity counter
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppTheme.primaryColor),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              // Decrease button
+                              InkWell(
+                                onTap: () {
+                                  if (item.quantity > 1) {
+                                    if (isMainCart) {
+                                      cartProvider.updateMainCartQuantity(
+                                        item.variant.var_id, 
+                                        item.quantity - 1
+                                      );
+                                    } else {
+                                      cartProvider.updateListViewCartQuantity(
+                                        item.variant.var_id, 
+                                        item.quantity - 1
+                                      );
+                                    }
+                                  } else {
+                                    if (isMainCart) {
+                                      cartProvider.removeFromMainCart(item.variant.var_id);
+                                    } else {
+                                      cartProvider.removeFromListViewCart(item.variant.var_id);
+                                    }
+                                  }
+                                },
+                                child: Container(
+                                  height: 36,
+                                  width: 36,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor,
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: Radius.circular(7),
+                                      bottomLeft: Radius.circular(7),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.remove,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                              
+                              // Quantity
+                              Container(
+                                height: 36,
+                                width: 36,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  item.quantity.toString(),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              
+                              // Increase button
+                              InkWell(
+                                onTap: () {
+                                  if (isMainCart) {
+                                    cartProvider.updateMainCartQuantity(
+                                      item.variant.var_id, 
+                                      item.quantity + 1
+                                    );
+                                  } else {
+                                    cartProvider.updateListViewCartQuantity(
+                                      item.variant.var_id, 
+                                      item.quantity + 1
+                                    );
+                                  }
+                                  
+                                  CartAnimations.flyToCart(
+                                    context,
+                                    productImageKey,
+                                    item.variant.image,
+                                    cartIconPos: Offset(
+                                      MediaQuery.of(context).size.width - 30,
+                                      MediaQuery.of(context).padding.top + 20,
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  height: 36,
+                                  width: 36,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor,
+                                    borderRadius: BorderRadius.only(
+                                      topRight: Radius.circular(7),
+                                      bottomRight: Radius.circular(7),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.add,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
             ),
-            buildCheckoutButton(context),
           ],
-        );
-      },
-    );
-  }
-
-  double calculateSubtotalForMainCart(CartProvider cartProvider) {
-    double subtotal = 0;
-    cartProvider.mainCartItems.forEach((item) {
-      subtotal += (double.parse(item.variant.curr_price.replaceAll(RegExp(r'[^0-9.]'), '')) * item.quantity);
-    });
-    return subtotal;
-  }
-
-  double calculateSubtotalForListViewCart(CartProvider cartProvider) {
-    double subtotal = 0;
-    cartProvider.listViewCartItems.forEach((item) {
-      subtotal += (double.parse(item.variant.curr_price.replaceAll(RegExp(r'[^0-9.]'), '')) * item.quantity);
-    });
-    return subtotal;
-  }
-
-  Widget buildFinalCartSummary(CartProvider cartProvider) {
-    double mainCartSubtotal = calculateSubtotalForMainCart(cartProvider);
-    double listViewCartSubtotal = calculateSubtotalForListViewCart(cartProvider);
-    double totalSubtotal = mainCartSubtotal + listViewCartSubtotal;
-
-    double promoDiscount = 50; // Adjust as necessary
-    double finalTotal = totalSubtotal - promoDiscount;
-
-    return Column(
-      children: [
-        buildSummaryRow("Delivery Charges", "Calculated at next step"),
-        buildDivider(),
-        buildSummaryRow("Main Cart Subtotal", "Rs: ${mainCartSubtotal.toStringAsFixed(2)}"),
-        buildSummaryRow("List View Cart Subtotal", "Rs: ${listViewCartSubtotal.toStringAsFixed(2)}"),
-        buildDivider(),
-        buildSummaryRow("Promo Code", "- Rs: $promoDiscount"),
-        buildDivider(),
-        buildOrangeContainer(),
-        buildDivider(),
-        buildSummaryRow("Final Total", "Rs: ${finalTotal.toStringAsFixed(2)}"),
-      ],
-    );
-  }
-
-  Widget buildCartSummaryMain(CartProvider cartProvider) {
-    double subtotal = 0;
-    cartProvider.mainCartItems.forEach((item) {
-      subtotal += (double.parse(item.variant.curr_price.replaceAll(RegExp(r'[^0-9.]'), '')) * item.quantity);
-    });
-    double promoDiscount = 50; // You can modify this based on the applied promo
-    double total = subtotal - promoDiscount;
-
-    return Column(
-      children: [
-        buildSummaryRow("Delivery Charges", "Calculated at next step"),
-        buildDivider(),
-        buildSummaryRow("Sub Total", "Rs: ${subtotal.toStringAsFixed(2)}"),
-        buildDivider(),
-        buildSummaryRow("Promo Code", "- Rs: $promoDiscount"),
-        buildDivider(),
-        buildOrangeContainer(),
-        buildDivider(),
-        buildSummaryRow("Total", "Rs: ${total.toStringAsFixed(2)}"),
-
-      ],
-    );
-  }
-
-  Widget buildCartSummaryListview(CartProvider cartProvider) {
-    double subtotal = 0;
-    cartProvider.listViewCartItems.forEach((item) {
-      subtotal += (double.parse(item.variant.curr_price.replaceAll(RegExp(r'[^0-9.]'), '')) * item.quantity);
-    });
-    double promoDiscount = 50; // You can modify this based on the applied promo
-    double total = subtotal - promoDiscount;
-
-    return Column(
-      children: [
-        buildSummaryRow("Delivery Charges", "Calculated at next step"),
-        buildDivider(),
-        buildSummaryRow("Sub Total", "Rs: ${subtotal.toStringAsFixed(2)}"),
-        buildDivider(),
-        buildSummaryRow("Promo Code", "- Rs: $promoDiscount"),
-        buildDivider(),
-        buildOrangeContainer(),
-        buildDivider(),
-        buildSummaryRow("Total", "Rs: ${total.toStringAsFixed(2)}"),
-
-      ],
-    );
-  }
-
-  Widget buildProductMainListView(CartProvider cartProvider) {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: cartProvider.mainCartItems.length,
-      itemBuilder: (context, index) {
-        final item = cartProvider.mainCartItems[index];
-        return buildProductItem(item, cartProvider, index, true);
-      },
-    );
-  }
-
-  Widget buildProductListViews(CartProvider cartProvider) {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: cartProvider.listViewCartItems.length,
-      itemBuilder: (context, index) {
-        final item = cartProvider.listViewCartItems[index];
-        return buildProductItem(item, cartProvider, index, false);
-      },
-    );
-  }
-
-  Widget buildProductItem(CartItem item, CartProvider cartProvider, int index, bool isMainCart) {
-    final variant = item.variant;
-
-    return Container(
-      height: 220,
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      child: Card(
-        color: Colors.white,
-        elevation: 1,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.zero,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(3.0),
-          child: Stack(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Image.asset(
-                      variant.image,
-                      width: 100,
-                      height: 80,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(variant.name),
-                        Text(variant.weight),
-                        Text("₹${variant.curr_price}"),
-                        Row(
-                          children: [
-                            Text(variant.curr_price.toString()),
-                            SizedBox(width: 8),
-                            Text(
-                              variant.pre_price.toString(),
-                              style: TextStyle(decoration: TextDecoration.lineThrough),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+      ),
+    );
+  }
+  
+  Widget _buildPromoCodeSection() {
+    return Container(
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.local_offer_outlined,
+            color: AppTheme.primaryColor,
+          ),
+          SizedBox(width: 16),
+          Expanded(
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Apply promo code',
+                border: InputBorder.none,
+                hintStyle: TextStyle(
+                  color: Colors.grey[500],
+                ),
               ),
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: isMainCart
-                    ? buildQuantityCounterMain(index, item.quantity, cartProvider)
-                    : buildQuantityCounterListview(index, item.quantity, cartProvider),
+            ),
+          ),
+          TextButton(
+            onPressed: () {},
+            style: TextButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text('Apply'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildOrderSummary(CartProvider cartProvider) {
+    // Calculate main cart subtotal
+    double mainCartSubtotal = cartProvider.mainCartItems.fold(0.0, (sum, item) {
+      final price = double.tryParse(item.variant.curr_price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+      return sum + (price * item.quantity);
+    });
+    
+    // Calculate list view cart subtotal
+    double listViewCartSubtotal = cartProvider.listViewCartItems.fold(0.0, (sum, item) {
+      final price = double.tryParse(item.variant.curr_price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+      return sum + (price * item.quantity);
+    });
+    
+    double subtotal = mainCartSubtotal + listViewCartSubtotal;
+    double deliveryFee = 50.0; // Example delivery fee
+    double discount = 0.0; // Apply discount if promo code is used
+    double total = subtotal + deliveryFee - discount;
+    
+    return Container(
+      margin: EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Order Summary',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          SizedBox(height: 16),
+          _buildSummaryRow('Subtotal', 'Rs. ${subtotal.toStringAsFixed(2)}'),
+          SizedBox(height: 8),
+          _buildSummaryRow('Delivery Fee', 'Rs. ${deliveryFee.toStringAsFixed(2)}'),
+          SizedBox(height: 8),
+          if (discount > 0) ...[
+            _buildSummaryRow(
+              'Discount',
+              '- Rs. ${discount.toStringAsFixed(2)}',
+              discountColor: Colors.green,
+            ),
+            SizedBox(height: 8),
+          ],
+          Divider(),
+          SizedBox(height: 8),
+          _buildSummaryRow(
+            'Total',
+            'Rs. ${total.toStringAsFixed(2)}',
+            isBold: true,
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSummaryRow(String label, String value, {bool isBold = false, Color? discountColor}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+            fontSize: isBold ? 16 : 14,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: discountColor ?? (isBold ? AppTheme.primaryColor : Colors.black87),
+            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+            fontSize: isBold ? 16 : 14,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildCheckoutButton(CartProvider cartProvider) {
+    // Calculate total price
+    double mainCartSubtotal = cartProvider.mainCartItems.fold(0.0, (sum, item) {
+      final price = double.tryParse(item.variant.curr_price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+      return sum + (price * item.quantity);
+    });
+    
+    double listViewCartSubtotal = cartProvider.listViewCartItems.fold(0.0, (sum, item) {
+      final price = double.tryParse(item.variant.curr_price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+      return sum + (price * item.quantity);
+    });
+    
+    double total = mainCartSubtotal + listViewCartSubtotal + 50.0; // Adding delivery fee
+    
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: ElevatedButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CheckoutScreen(),
+              ),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primaryColor,
+            padding: EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 0,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Proceed to Checkout',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(width: 8),
+              Text(
+                '(Rs. ${total.toStringAsFixed(2)})',
+                style: TextStyle(
+                  fontSize: 16,
+                ),
               ),
             ],
           ),
@@ -230,434 +638,62 @@ class _MyCartScreenState extends State<MyCartScreen> {
     );
   }
 
-
-  Widget buildQuantityCounterMain(int index, int quantity, CartProvider cartProvider) {
-    return buildQuantityCounter(index, quantity, cartProvider, true);
-  }
-
-  Widget buildQuantityCounterListview(int index, int quantity, CartProvider cartProvider) {
-    return buildQuantityCounter(index, quantity, cartProvider, false);
-  }
-
-
-  // Common Quantity Counter Widget
-  Widget buildQuantityCounter(int index, int quantity, CartProvider cartProvider, bool isMainCart) {
-    return Container(
-      margin: EdgeInsets.only(left: 5),
-      height: 40,
-      width: 120,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.green, width: 2),
-      ),
-      child: Row(
+  Widget _buildEmptyCartView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          IconButton(
-            onPressed: () {
-              setState(() {
-                if (isMainCart) {
-                  if (quantity > 1) {
-                    cartProvider.updateMainCartQuantity(cartProvider.mainCartItems[index].variant.var_id, quantity - 1);
-                  } else {
-                    cartProvider.removeFromMainCart(cartProvider.mainCartItems[index].variant.var_id);
-                  }
-                } else {
-                  if (quantity > 1) {
-                    cartProvider.updateListViewCartQuantity(cartProvider.listViewCartItems[index].variant.var_id, quantity - 1);
-                  } else {
-                    cartProvider.removeFromListViewCart(cartProvider.listViewCartItems[index].variant.var_id);
-                  }
-                }
-              });
-            },
-            icon: Icon(Icons.remove),
+          Image.asset(
+            'assets/images/empty_cart.png',
+            width: 150,
+            height: 150,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => Icon(
+              Icons.shopping_cart_outlined,
+              size: 100,
+              color: Colors.grey[300],
+            ),
           ),
-          Text(quantity.toString()),
-          IconButton(
+          SizedBox(height: 24),
+          Text(
+            'Your cart is empty',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Looks like you haven\'t added\nanything to your cart yet.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+          ),
+          SizedBox(height: 32),
+          ElevatedButton(
             onPressed: () {
-              setState(() {
-                if (isMainCart) {
-                  cartProvider.updateMainCartQuantity(cartProvider.mainCartItems[index].variant.var_id, quantity + 1);
-                } else {
-                  cartProvider.updateListViewCartQuantity(cartProvider.listViewCartItems[index].variant.var_id, quantity + 1);
-                }
-              });
+              Navigator.pop(context);
             },
-            icon: Icon(Icons.add),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: Text(
+              'Start Shopping',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
-
-
-  Widget buildCartActionButtonListview(int index, int quantity) {
-    if (quantity > 0) {
-      return buildQuantityCounterListview(index, quantity, Provider.of<CartProvider>(context, listen: false));
-    } else {
-      return Container(
-        margin: const EdgeInsets.only(top: 150),
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1)),
-          ),
-          onPressed: () {
-            setState(() {
-              // productQuantities[index] = 1;
-            });
-          },
-          child: const Text("Add to Cart", style: TextStyle(color: Colors.white)),
-        ),
-      );
-    }
-  }
-
-
-
-  Widget buildCartActionButtonMain(int index, int quantity) {
-    if (quantity > 0) {
-      return buildQuantityCounterMain(index, quantity, Provider.of<CartProvider>(context, listen: false));
-    } else {
-      return Container(
-        margin: const EdgeInsets.only(top: 150),
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1)),
-          ),
-          onPressed: () {
-            setState(() {
-              // productQuantities[index] = 1;
-            });
-          },
-          child: const Text("Add to Cart", style: TextStyle(color: Colors.white)),
-        ),
-      );
-    }
-  }
-
-  AppBar buildAppBar(BuildContext context) {
-    return AppBar(
-      backgroundColor: Colors.white,
-      title: const Text("My Cart"),
-    );
-  }
-
-  Stack BottomManager(BuildContext context) {
-    return Stack(
-      children: [
-        // Main content with the scrollable list of products
-        Column(
-          children: [
-            StepProgressWidget(currentStep: 1),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-//                  buildProductListView(cartItems),
-                    Container(
-                      height: 70,
-                      width: 400,
-                      color: Colors.white,
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.only(left: 10),
-                            child: Text(
-                              "Delivery Charged",
-                              style: TextStyle(fontSize: 14, color: Colors.grey),
-                            ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(right: 10),
-                            child: Text(
-                              "Calculated at next step",
-                              style: TextStyle(fontSize: 14, color: Colors.grey),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Container(
-                      height: 70,
-                      width: 400,
-                      color: Colors.white,
-                      child:  Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.only(left: 10),
-                            child: Text(
-                              "Sub Total",
-                              style: TextStyle(fontSize: 14, color: Colors.grey),
-                            ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(right: 10),
-                            child: Text(
-                              "Rs: 255",
-                              style: TextStyle(fontSize: 14, color: Colors.grey),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Container(
-                      height: 70,
-                      width: 400,
-                      color: Colors.white,
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.only(left: 10),
-                            child: Text(
-                              "Promo Code",
-                              style: TextStyle(fontSize: 14, color: Colors.grey),
-                            ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(right: 10),
-                            child: Text(
-                              "Rs: 326",
-                              style: TextStyle(fontSize: 14, color: Colors.grey),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Container(
-                      height: 180,
-                      width: 400,
-                      color: Colors.orange,
-                      child: Column(
-                        children: [
-                          Align(
-                            alignment: Alignment.topLeft,
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 10, top: 10),
-                              child: Row(
-                                children: const [
-                                  Text(
-                                    "Ultimate Free Deliveries",
-                                    style: TextStyle(fontSize: 14, color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Center(
-                            child: Container(
-                              height: 100,
-                              width: 400,
-                              margin: EdgeInsets.symmetric(horizontal: 25, vertical: 12),
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Container(
-                      height: 70,
-                      width: 400,
-                      color: Colors.white,
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.only(left: 10),
-                            child: Text(
-                              "Total:",
-                              style: TextStyle(fontSize: 14, color: Colors.grey),
-                            ),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(right: 10),
-                            child: Text(
-                              "Rs: 326",
-                              style: TextStyle(fontSize: 14, color: Colors.grey),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 80,),
-
-                  ],
-                ),
-              ),
-
-            ),
-          ],
-        ),
-
-        // Fixed button at the bottom of the screen
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Container(
-            height: 70,
-            color: Colors.white,
-            child: Center(
-              child: Container(
-                width: 350,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange, // Set background color to orange
-                    minimumSize: Size(200, 50),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () {
-                    // Handle your button action here
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => CheckoutScreen()),
-                    );
-                  },
-                  child: const Text(
-                    "Proceed to Checkout",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget buildSummaryRow(String label, String value) {
-    return Container(
-      height: 50,
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-            Text(value, style: const TextStyle(fontSize: 14, color: Colors.black)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget buildDivider() {
-    return Container(
-      height: 1,
-      color: Colors.grey, // Grey line divider
-    );
-  }
-
-  Widget buildOrangeContainer() {
-    return Container(
-        height: 200,
-        width: 410,
-        color: Colors.orange,
-        child:Column(
-          children: [
-            Container(
-              margin: EdgeInsets.only(top: 7 , right: 200),
-              child: Text(
-                "Additional Information", // You can add custom content here
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ),
-            Container(
-              color: Colors.white,
-              margin: EdgeInsets.only(top: 10),
-              height: 130,
-              width: 350,
-            )
-          ],
-        )
-
-    );
-  }
-
-  Widget buildEmptyCartView(BuildContext context) {
-    return Stack(
-      children: [
-        Container(color: Colors.grey[200]),
-        StepProgressWidget(currentStep: 1),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            width: 400,
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "Your Cart is empty",
-                  style: TextStyle(fontSize: 15, color: Colors.grey),
-                ),
-                const Text(
-                  "Lets fill it up by adding some items!",
-                  style: TextStyle(fontSize: 15, color: Colors.grey),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  width: 350,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      minimumSize: const Size(200, 50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(1)),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => CheckoutScreen()),
-                      );
-                    },
-                    child: const Text(
-                      "Start Shopping",
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget buildCheckoutButton(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.all(16.0),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.orange,
-          minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => Dashbaord()),
-          );
-        },
-        child: const Text(
-          "Proceed to Checkout",
-          style: TextStyle(color: Colors.white, fontSize: 16),
-        ),
-      ),
-    );
-  }
-
 }

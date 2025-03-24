@@ -3,17 +3,19 @@ import 'package:GrocerApp/Common/WishListProvider.dart';
 import 'package:GrocerApp/pages/splash_screen.dart';
 import 'package:provider/provider.dart';
 import 'Common/Cart Provider.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'Common/VariantProvider.dart';
+import 'LocalStorageHelper/LocalStorageService.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  
+  // Initialize local storage data
+  await LocalStorageService.initializeData();
+  
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => CartProvider()),
-        ChangeNotifierProvider(create: (_) => VariantProvider()),
         ChangeNotifierProvider(create: (_) => WishlistProvider()),
       ],
       child: MyApp(),
@@ -27,7 +29,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'GrocerApp',
       debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
       home: splash_screen()
     );
   }

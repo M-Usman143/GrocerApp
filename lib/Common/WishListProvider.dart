@@ -1,67 +1,69 @@
-// import 'package:flutter/material.dart';
-//
-// import '../Models/model.dart';
-//
-// class WishlistProvider with ChangeNotifier {
-//   List<String> _wishlistIds = [];
-//   List<Variant> _wishlist = [];
-//
-//   List<Variant> get wishlist => _wishlist;
-//
-//   void addToWishlist(Variant variant) {
-//     _wishlist.add(variant);
-//     notifyListeners();
-//   }
-//
-//
-//   void removeFromWishlist(String variantId) {
-//     _wishlistIds.remove(variantId);
-//     notifyListeners();
-//   }
-//
-//   bool isInWishlist(String variantId) {
-//     return _wishlistIds.contains(variantId);
-//   }
-//
-// }
-
-
-
 import 'package:flutter/material.dart';
 import '../Models/model.dart';
-
-import 'package:flutter/material.dart';
-import '../Models/model.dart';
+import '../LocalStorageHelper/LocalStorageService.dart';
 
 class WishlistProvider with ChangeNotifier {
-  List<String> _wishlistIds = []; // This stores the IDs of the items
-  List<Variant> _wishlist = [];   // This stores the actual Variant objects
-
-  List<Variant> get wishlist => _wishlist;
-
-  // Add a variant to the wishlist
-  void addToWishlist(Variant variant) {
-    if (!_wishlistIds.contains(variant.var_id)) {
-      _wishlist.add(variant);              // Add the Variant object to the wishlist
-      _wishlistIds.add(variant.var_id);    // Add the Variant's ID to the _wishlistIds list
-      notifyListeners();                   // Notify listeners to update the UI
+  List<Variant> _wishlistItems = [];
+  
+  List<Variant> get wishlistItems => _wishlistItems;
+  
+  int get wishlistCount => _wishlistItems.length;
+  
+  // Load wishlist items from localStorage
+  Future<void> loadWishlistItems() async {
+    try {
+      final items = await LocalStorageService.getWishlistItems();
+      _wishlistItems = items;
+      notifyListeners();
+    } catch (e) {
+      print('Error loading wishlist items: $e');
     }
   }
-
-  // Remove a variant from the wishlist
-  void removeFromWishlist(String variantId) {
-    _wishlist.removeWhere((variant) => variant.var_id == variantId); // Remove the Variant from the wishlist
-    _wishlistIds.remove(variantId); // Remove the Variant ID from the _wishlistIds list
-    notifyListeners();               // Notify listeners to update the UI
+  
+  // Add an item to the wishlist
+  Future<void> addToWishlist(Variant variant) async {
+    // Check if item already exists in wishlist
+    if (!isInWishlist(variant)) {
+      _wishlistItems.add(variant);
+      await _saveWishlist();
+      notifyListeners();
+    }
   }
-
-  // Check if a product is in the wishlist
-  bool isInWishlist(String variantId) {
-    return _wishlistIds.contains(variantId);  // Check if the ID is in the list of wishlist IDs
-  }
-  // Add this method to clear the wishlist
-  void clearWishlist() {
-    _wishlist.clear();
+  
+  // Remove an item from the wishlist
+  Future<void> removeFromWishlist(String variantId) async {
+    _wishlistItems.removeWhere((item) => item.var_id == variantId);
+    await _saveWishlist();
     notifyListeners();
+  }
+  
+  // Toggle an item in the wishlist (add if not exists, remove if exists)
+  Future<void> toggleWishlistItem(Variant variant) async {
+    if (isInWishlist(variant)) {
+      await removeFromWishlist(variant.var_id);
+    } else {
+      await addToWishlist(variant);
+    }
+  }
+  
+  // Check if an item is in the wishlist
+  bool isInWishlist(Variant variant) {
+    return _wishlistItems.any((item) => item.var_id == variant.var_id);
+  }
+  
+  // Clear the entire wishlist
+  Future<void> clearWishlist() async {
+    _wishlistItems.clear();
+    await _saveWishlist();
+    notifyListeners();
+  }
+  
+  // Save wishlist to localStorage
+  Future<void> _saveWishlist() async {
+    try {
+      await LocalStorageService.saveWishlistItems(_wishlistItems);
+    } catch (e) {
+      print('Error saving wishlist: $e');
+    }
   }
 }

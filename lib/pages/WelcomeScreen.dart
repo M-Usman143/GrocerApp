@@ -1,152 +1,281 @@
 import 'package:flutter/material.dart';
 import 'package:GrocerApp/pages/login.dart';
+import 'package:GrocerApp/theme/app_theme.dart';
 import 'LocationScreen.dart';
 
+class Welcomescreen extends StatefulWidget {
+  @override
+  _WelcomescreenState createState() => _WelcomescreenState();
+}
 
+class _WelcomescreenState extends State<Welcomescreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeInAnimation;
+  late Animation<Offset> _slideAnimation;
 
-class Welcomescreen extends StatelessWidget {
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+
+    _fadeInAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Interval(0.2, 1.0, curve: Curves.easeOut),
+      ),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.5),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Interval(0.2, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SizedBox(height: 50), // Spacing for the top
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    width: 120,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.orange),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.orange,
-                              borderRadius: BorderRadius.only(
-                                topLeft: Radius.circular(8),
-                                bottomLeft: Radius.circular(8),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF1E8E3E), // Dark green
+              Color(0xFF4CAF50), // Medium green
+              Color(0xFF7CB342), // Light green
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Top section with language and login
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      width: 120,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Text(
+                                "English",
+                                style: TextStyle(
+                                  color: Color(0xFF1E8E3E),
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
-                            alignment: Alignment.center,
-                            child: const Text(
-                              "English",
-                              style: TextStyle(color: Colors.white),
+                          ),
+                          Expanded(
+                            child: Container(
+                              alignment: Alignment.center,
+                              child: Text(
+                                "اردو",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => LoginPage()),
+                        );
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          "Login",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E8E3E),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Main content with animation
+              Expanded(
+                child: FadeTransition(
+                  opacity: _fadeInAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // App logo or illustration
+                        Container(
+                          height: screenHeight * 0.25,
+                          width: screenWidth * 0.6,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 20,
+                                spreadRadius: 5,
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Image.asset(
+                              'assets/images/applogo_1.png',
+                              height: screenHeight * 0.15,
                             ),
                           ),
                         ),
-                        Expanded(
-                          child: Container(
-                            alignment: Alignment.center,
-                            child: Text(
-                              "اردو",
-                              style: TextStyle(color: Colors.orange),
+                        SizedBox(height: screenHeight * 0.04),
+                        
+                        // App title
+                        Text(
+                          "Welcome to GrocerApp",
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        SizedBox(height: screenHeight * 0.02),
+                        
+                        // App description
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.1),
+                          child: Text(
+                            "Delivering 5000+ premium products including groceries, fresh fruits, vegetables & meats right to your doorstep.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              height: 1.4,
+                              color: Colors.white.withOpacity(0.9),
                             ),
                           ),
                         ),
+                        SizedBox(height: screenHeight * 0.05),
+                        
+                        // Location section
+                        Text(
+                          "Set your delivery location",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: screenHeight * 0.03),
                       ],
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => LoginScreen()),
-                      );
-                    },
-                    child: Text(
-                      "Login",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                ),
+              ),
+              
+              // Bottom section with buttons
+              Padding(
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    // Current location button
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => LocationScreen()),
+                        );
+                      },
+                      icon: Icon(Icons.my_location, color: Color(0xFF1E8E3E)),
+                      label: Text(
+                        "Use my current location",
+                        style: TextStyle(
+                          color: Color(0xFF1E8E3E),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        minimumSize: Size(double.infinity, 56),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        elevation: 2,
                       ),
                     ),
-                  ),
-
-                ],
-              ),
-            ),
-            SizedBox(height: 200), // Spacing
-            Image.asset(
-              'assets/images/welcome.jpg',
-              height: 150,
-            ),
-            SizedBox(height: 20),
-            Text(
-              "Welcome to GrocerApp",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-              child: Text(
-                "Delivering 5000+ products including groceries, fruits, veg. & meats to your door.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.black54),
-              ),
-            ),
-            SizedBox(height: 20),
-            const Text(
-              "Set your delivery location",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => LocationScreen()),
-                  );
-                },
-                icon: const Icon(Icons.my_location, color: Colors.white),
-                label: const Text("Use my current location" ,style: TextStyle(color: Colors.white),),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  minimumSize: Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                    SizedBox(height: 16),
+                    
+                    // Manual location link
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => LocationScreen()),
+                        );
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          "Set location manually",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                  ],
                 ),
               ),
-            ),
-            SizedBox(height: 150),
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => LocationScreen()),
-                );
-              },
-              child: const Text(
-                "Set location manually",
-                style: TextStyle(
-                  fontSize: 20,
-                  color: Colors.black54,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-            ),
-            SizedBox(height: 30), // Bottom padding
-          ],
+            ],
+          ),
         ),
       ),
     );

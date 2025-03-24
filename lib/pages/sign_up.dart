@@ -1,148 +1,267 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:flutter/services.dart';
-import 'package:GrocerApp/pages/OtpScreen.dart';
+import 'package:GrocerApp/pages/Dashboard/Dashboard.dart';
+import 'login.dart';
+import '../LocalStorageHelper/LocalAuthService.dart';
+import '../theme/app_theme.dart';
+import '../Common/ui_components.dart';
 
-import '../Common/SharedPreferenceHelper.dart';
-import '../FirebaseHelper/FirebaseServiceAuth.dart';
+class SignUpPage extends StatefulWidget {
+  const SignUpPage({Key? key}) : super(key: key);
 
-class SignUp extends StatefulWidget {
   @override
-  State<SignUp> createState() => _SignUpState();
+  _SignUpPageState createState() => _SignUpPageState();
 }
 
-class _SignUpState extends State<SignUp> {
+class _SignUpPageState extends State<SignUpPage> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  final DatabaseReference _databaseRef =
-  FirebaseDatabase.instance.ref().child('Users');
-  final FirebaseAuthService _authService = FirebaseAuthService();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+  bool _isLoading = false;
+  final _formKey = GlobalKey<FormState>();
+  bool _obscureText = true;
+  bool _obscureConfirmText = true;
 
-  bool _isPhoneNumberValid = false;
+  Future<void> _signUp() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
 
-  void _onPhoneNumberChanged() {
-    String phoneNumber = _phoneController.text.trim();
-    setState(() {
-      // Ensure the phone number is valid when it has 9 digits
-      _isPhoneNumberValid = RegExp(r'^[3][0-9]{9}$').hasMatch(phoneNumber);
-    });
-  }
+      try {
+        final bool success = await LocalAuthService.registerUser(
+          _emailController.text.trim(),
+          _passwordController.text,
+          _nameController.text.trim(),
+          _phoneController.text.trim(),
+        );
 
-  void _handleLoginSignUp() async {
-    String phoneNumber = '+92' + _phoneController.text.trim();
-
-    await _authService.requestOTP(phoneNumber);
-
-    await SharedPreferencesHelper.savePhoneNumber(phoneNumber);
-    await _databaseRef.push().set({'phone': phoneNumber}).catchError((error) {
-      print('Error saving to database: $error');
-    });
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => OtpScreen(phoneNumber: phoneNumber),
-      ),
-    );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _phoneController.addListener(_onPhoneNumberChanged); // Listen for input changes
-  }
-
-  @override
-  void dispose() {
-    _phoneController.removeListener(_onPhoneNumberChanged); // Remove listener
-    _phoneController.dispose(); // Dispose controller
-    super.dispose();
+        if (success) {
+          // Navigate to dashboard on successful registration
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => Dashboard()),
+          );
+        } else {
+          // Show error message if registration fails
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Registration failed. Email may already be in use.'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+      } catch (e) {
+        // Show error message for exceptions
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 100),
-            const Text(
-              'Enter your mobile number',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Enter your number to create an account or login',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Row(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        title: Text('Create Account'),
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: AppTheme.screenPadding(context),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 60,
-                  child: const TextField(
-                    decoration: InputDecoration(
-                      hintText: '+92',
-                      border: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.orange),
-                      ),
-                    ),
+                // App logo or illustration
+                Center(
+                  child: Image.asset(
+                    'assets/images/applogo_1.png',
+                    height: 100,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                    maxLength: 10,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(10),
-                    ],
-                    decoration: const InputDecoration(
-                      hintText: '3',
-
-                      border: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.orange),
-                      ),
-                      counterText: '', // Hide character counter
+                
+                SizedBox(height: 24),
+                
+                // Welcome text
+                Text(
+                  'Create New Account',
+                  style: AppTheme.headingStyle,
+                  textAlign: TextAlign.center,
+                ),
+                
+                SizedBox(height: 8),
+                
+                Text(
+                  'Please fill in the form to create your account',
+                  style: AppTheme.captionStyle,
+                  textAlign: TextAlign.center,
+                ),
+                
+                SizedBox(height: 32),
+                
+                // Name field
+                LabeledTextField(
+                  label: 'Full Name',
+                  hint: 'Enter your full name',
+                  controller: _nameController,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your name';
+                    }
+                    return null;
+                  },
+                ),
+                
+                SizedBox(height: 20),
+                
+                // Email field
+                LabeledTextField(
+                  label: 'Email',
+                  hint: 'Enter your email',
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your email';
+                    }
+                    if (!value.contains('@')) {
+                      return 'Please enter a valid email';
+                    }
+                    return null;
+                  },
+                ),
+                
+                SizedBox(height: 20),
+                
+                // Phone field
+                LabeledTextField(
+                  label: 'Phone Number',
+                  hint: 'Enter your phone number',
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your phone number';
+                    }
+                    return null;
+                  },
+                ),
+                
+                SizedBox(height: 20),
+                
+                // Password field
+                LabeledTextField(
+                  label: 'Password',
+                  hint: 'Create a password',
+                  controller: _passwordController,
+                  obscureText: _obscureText,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password should be at least 6 characters';
+                    }
+                    return null;
+                  },
+                  suffix: IconButton(
+                    icon: Icon(
+                      _obscureText ? Icons.visibility_off : Icons.visibility,
+                      color: AppTheme.textSecondaryColor,
                     ),
+                    onPressed: () {
+                      setState(() {
+                        _obscureText = !_obscureText;
+                      });
+                    },
                   ),
+                ),
+                
+                SizedBox(height: 20),
+                
+                // Confirm Password field
+                LabeledTextField(
+                  label: 'Confirm Password',
+                  hint: 'Confirm your password',
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmText,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please confirm your password';
+                    }
+                    if (value != _passwordController.text) {
+                      return 'Passwords do not match';
+                    }
+                    return null;
+                  },
+                  suffix: IconButton(
+                    icon: Icon(
+                      _obscureConfirmText ? Icons.visibility_off : Icons.visibility,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscureConfirmText = !_obscureConfirmText;
+                      });
+                    },
+                  ),
+                ),
+                
+                SizedBox(height: 32),
+                
+                // Sign Up button
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _signUp,
+                  child: _isLoading
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text('Create Account'),
+                ),
+                
+                SizedBox(height: 20),
+                
+                // Already have account link
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Already have an account? ',
+                      style: AppTheme.captionStyle,
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => LoginPage(),
+                          ),
+                        );
+                      },
+                      child: Text('Sign In'),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isPhoneNumberValid ? _handleLoginSignUp : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isPhoneNumberValid
-                      ? Colors.orange
-                      : Color(0xFFFAD7C5), // Change color
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'Login/Sign up',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

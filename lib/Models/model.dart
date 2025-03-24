@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class Variant {
    String name;
    String curr_price;
@@ -148,5 +150,22 @@ class Categories {
 // Method to get all variants for a given product
 List<Variant> getVariantsForProduct(Products product) {
   return product.variants;
+}
+
+// Simplified Product class for product cards
+class Product {
+  final String name;
+  final String quantity;
+  final double price;
+  final IconData? categoryIcon;
+  final String? imageUrl;
+
+  Product({
+    required this.name,
+    required this.quantity,
+    required this.price,
+    this.categoryIcon,
+    this.imageUrl,
+  });
 }
 

@@ -1,104 +1,212 @@
 import 'package:flutter/material.dart';
-import 'package:GrocerApp/pages/Dashboard.dart';
+import 'package:GrocerApp/pages/Dashboard/Dashboard.dart';
 import 'package:GrocerApp/pages/sign_up.dart';
+import '../LocalStorageHelper/LocalAuthService.dart';
+import '../theme/app_theme.dart';
+import '../Common/ui_components.dart';
+import 'OtpScreen.dart';
 
+class LoginPage extends StatefulWidget {
+  const LoginPage({Key? key}) : super(key: key);
 
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+  @override
+  _LoginPageState createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
+  final _formKey = GlobalKey<FormState>();
+  bool _obscureText = true;
+
+  Future<void> _login() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        final bool success = await LocalAuthService.signInUser(
+          _emailController.text.trim(),
+          _passwordController.text,
+        );
+
+        if (success) {
+          // Navigate to dashboard on successful login
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => Dashboard()),
+          );
+        } else {
+          // Show error message for failed login
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Invalid email or password'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+      } catch (e) {
+        // Show error message for exceptions
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back,
-            color: Colors.black,
-          ),
-          onPressed: () {},
-        ),
-        toolbarHeight: 150,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: Container(
-          margin: EdgeInsets.only(bottom: 250),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Spacer(),
-              const Text(
-                "Let's get connected",
-                style: TextStyle(
-                  fontSize: 24.0,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8.0),
-              const Text(
-                "Easy & safe way to connect",
-                style: TextStyle(
-                  fontSize: 16.0,
-                  color: Colors.grey,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24.0),
-              Center(
-                child: Image.asset(
-                  'assets/images/loginimage.jpg',
-                  height: 200.0,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 24.0),
-              const Text(
-                "Create an account or login to the GrocerApp",
-                style: TextStyle(
-                  fontSize: 14.0,
-                  color: Colors.grey,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24.0),
-              SizedBox(
-                width: double.infinity,
-                height: 50.0,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => SignUp()),
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.phone_android,
-                    color: Colors.white,
-                  ),
-                  label: const Text(
-                    "Continue via number",
-                    style: TextStyle(
-                      fontSize: 16.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white
+      backgroundColor: AppTheme.backgroundColor,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: AppTheme.screenPadding(context),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // App logo
+                  Center(
+                    child: Image.asset(
+                      'assets/images/applogo_1.png',
+                      height: 120,
                     ),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
+                  
+                  SizedBox(height: 32),
+                  
+                  // Welcome text
+                  Text(
+                    'Welcome Back',
+                    style: AppTheme.headingStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                  
+                  SizedBox(height: 8),
+                  
+                  Text(
+                    'Sign in to your account',
+                    style: AppTheme.captionStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                  
+                  SizedBox(height: 32),
+                  
+                  // Email field
+                  LabeledTextField(
+                    label: 'Email',
+                    hint: 'Enter your email',
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your email';
+                      }
+                      if (!value.contains('@')) {
+                        return 'Please enter a valid email';
+                      }
+                      return null;
+                    },
+                  ),
+                  
+                  SizedBox(height: 24),
+                  
+                  // Password field
+                  LabeledTextField(
+                    label: 'Password',
+                    hint: 'Enter your password',
+                    controller: _passwordController,
+                    obscureText: _obscureText,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your password';
+                      }
+                      if (value.length < 6) {
+                        return 'Password should be at least 6 characters';
+                      }
+                      return null;
+                    },
+                    suffix: IconButton(
+                      icon: Icon(
+                        _obscureText ? Icons.visibility_off : Icons.visibility,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureText = !_obscureText;
+                        });
+                      },
                     ),
                   ),
-                ),
+                  
+                  SizedBox(height: 12),
+                  
+                  // Forgot password button
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        // Implement forgot password functionality
+                      },
+                      child: Text('Forgot Password?'),
+                    ),
+                  ),
+                  
+                  SizedBox(height: 24),
+                  
+                  // Login button
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _login,
+                    child: _isLoading
+                        ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text('Sign In'),
+                  ),
+                  
+                  SizedBox(height: 24),
+                  
+                  // Sign up link
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "Don't have an account? ",
+                        style: AppTheme.captionStyle,
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SignUpPage(),
+                            ),
+                          );
+                        },
+                        child: Text('Sign Up'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const Spacer(),
-            ],
+            ),
           ),
         ),
       ),

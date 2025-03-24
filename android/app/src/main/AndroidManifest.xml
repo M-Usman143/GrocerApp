@@ -16,7 +16,7 @@
     <application
         android:enableOnBackInvokedCallback="true"
         android:allowBackup="true"
-        android:label="practice"
+        android:label="FreshBasket"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
